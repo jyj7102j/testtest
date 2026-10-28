@@ -1,0 +1,67 @@
+{
+	"convenience": {
+		"name": "편의점",
+		"description": "다양한 품목을 팔아요. 식품은 유통기한이 짧아요.",
+		"start_money": 3000,
+		"goal_money": 30000,
+		"daily_rent": 150,
+		"base_traffic": 14,
+		"storage_capacity": 120,
+		"customer_types": ["thrifty", "normal", "rich", "student"],
+		"travel": false,
+		"items": {
+			"kimbap": { "name": "삼각김밥", "base_price": 12, "volatility": 0.06, "shelf_life": 2, "demand": 1.4 },
+			"milk": { "name": "우유", "base_price": 15, "volatility": 0.05, "shelf_life": 4, "demand": 1.1 },
+			"ramen": { "name": "컵라면", "base_price": 10, "volatility": 0.04, "shelf_life": 0, "demand": 1.2 },
+			"snack": { "name": "과자", "base_price": 8, "volatility": 0.05, "shelf_life": 0, "demand": 1.0 },
+			"drink": { "name": "음료수", "base_price": 9, "volatility": 0.07, "shelf_life": 0, "demand": 1.1 },
+			"battery": { "name": "건전지", "base_price": 25, "volatility": 0.03, "shelf_life": 0, "demand": 0.4 }
+		},
+		"upgrades": ["storage_1", "storage_2", "sign", "fridge", "clerk", "ad"]
+	},
+	"trader": {
+		"name": "무역 상인",
+		"description": "도시마다 시세가 달라요. 싸게 사서 다른 도시에서 비싸게 파세요.",
+		"start_money": 5000,
+		"goal_money": 50000,
+		"daily_rent": 80,
+		"base_traffic": 6,
+		"storage_capacity": 60,
+		"customer_types": ["merchant", "rich", "normal"],
+		"travel": true,
+		"cities": {
+			"harbor": { "name": "항구도시", "price_bias": { "spice": 0.7, "silk": 1.1, "salt": 0.8, "tea": 1.2 } },
+			"capital": { "name": "수도", "price_bias": { "spice": 1.3, "silk": 1.4, "salt": 1.1, "tea": 1.0 } },
+			"mountain": { "name": "산골마을", "price_bias": { "spice": 1.4, "silk": 0.9, "salt": 1.5, "tea": 0.7 } }
+		},
+		"travel_cost": 300,
+		"items": {
+			"spice": { "name": "향신료", "base_price": 60, "volatility": 0.10, "shelf_life": 0, "demand": 1.0 },
+			"silk": { "name": "비단", "base_price": 120, "volatility": 0.08, "shelf_life": 0, "demand": 0.7 },
+			"salt": { "name": "소금", "base_price": 25, "volatility": 0.06, "shelf_life": 0, "demand": 1.2 },
+			"tea": { "name": "찻잎", "base_price": 45, "volatility": 0.09, "shelf_life": 10, "demand": 0.9 }
+		},
+		"upgrades": ["storage_1", "storage_2", "wagon", "guard", "clerk"]
+	},
+	"food_stall": {
+		"name": "노점 식당",
+		"description": "재료를 사서 요리를 팔아요. 재료는 금방 상해요.",
+		"start_money": 2000,
+		"goal_money": 25000,
+		"daily_rent": 100,
+		"base_traffic": 18,
+		"storage_capacity": 80,
+		"customer_types": ["student", "normal", "worker"],
+		"travel": false,
+		"items": {
+			"rice_cake": { "name": "떡", "base_price": 4, "volatility": 0.06, "shelf_life": 2, "demand": 0, "sellable": false },
+			"fish_cake": { "name": "어묵", "base_price": 5, "volatility": 0.06, "shelf_life": 2, "demand": 0, "sellable": false },
+			"sauce": { "name": "양념", "base_price": 3, "volatility": 0.03, "shelf_life": 6, "demand": 0, "sellable": false },
+			"batter": { "name": "튀김반죽", "base_price": 4, "volatility": 0.05, "shelf_life": 1, "demand": 0, "sellable": false },
+			"tteokbokki": { "name": "떡볶이", "base_price": 18, "volatility": 0.0, "shelf_life": 0, "demand": 1.5, "recipe": { "rice_cake": 2, "sauce": 1 } },
+			"odeng": { "name": "어묵꼬치", "base_price": 12, "volatility": 0.0, "shelf_life": 0, "demand": 1.2, "recipe": { "fish_cake": 2 } },
+			"twigim": { "name": "튀김", "base_price": 15, "volatility": 0.0, "shelf_life": 0, "demand": 1.0, "recipe": { "batter": 1, "fish_cake": 1 } }
+		},
+		"upgrades": ["storage_1", "sign", "fridge", "clerk", "ad"]
+	}
+}

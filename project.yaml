@@ -25,3 +25,39 @@ framework:
 # here. `/settings --local <key>=<value>` writes there; `/settings <key>=<value>`
 # edits this file. See `.claude/docs/config-resolution.md` for the full
 # precedence order.
+
+project:
+  name: "장사 시뮬레이터 (Shop Simulator)"
+  genre: "business simulation"
+  stage: "Pre-Production"
+
+modes:
+  rigor: minimal
+
+engine:
+  name: "Godot"
+  version: "4.7"
+  language: "GDScript"
+  rendering: "Forward+"
+  physics: "Godot Physics 2D"
+
+specialists:
+  code: "godot-gdscript-specialist"
+  shader: "godot-shader-specialist"
+  ui: "godot-specialist"
+  additional: ["godot-gdextension-specialist"]
+
+naming:
+  classes: PascalCase
+  variables: snake_case
+  constants: SCREAMING_SNAKE
+  signals: past_tense
+  files: snake_case
+  scenes: snake_case
+
+commands:
+  # TODO: confirm `build` once an export preset exists (preset names are project-defined).
+  build: "godot --headless --export-debug '<PRESET>'"
+  test: "godot --headless --path . -s res://tests/run_tests.gd"
+  run: "godot --path . --windowed --resolution 1280x720"
+  smoke: "godot --headless --path . --quit-after 5"

@@ -1,0 +1,18 @@
+{
+	"_comment": "Global tuning knobs shared by every shop type.",
+	"market_mean_reversion": 0.15,
+	"market_min_mult": 0.4,
+	"market_max_mult": 2.5,
+	"reputation_start": 50,
+	"reputation_min": 0,
+	"reputation_max": 100,
+	"reputation_on_sale": 0.4,
+	"reputation_on_walkout": -0.6,
+	"reputation_on_stockout": -0.3,
+	"reputation_traffic_weight": 0.01,
+	"haggle_discount_ask": [0.75, 0.92],
+	"haggle_accept_margin": 0.05,
+	"default_markup": 1.3,
+	"unstocked_want_weight": 0.3,
+	"day_customer_variance": 0.25
+}

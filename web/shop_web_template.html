@@ -1,0 +1,784 @@
+<title>장사 시뮬레이터</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: one phone-width column — sticky ledger header, scrolling stall, fixed action bar at the thumb. */
+:root {
+	--bg: #e9eef1;
+	--surface: #ffffff;
+	--surface-2: #f3f6f8;
+	--line: #d3dbe0;
+	--fg: #18232c;
+	--muted: #5d6b76;
+	--tarp: #e0601a;      /* market tarp orange — the one accent */
+	--tarp-ink: #ffffff;
+	--crate: #1f5fa8;     /* blue plastic crate — secondary */
+	--good: #1d7f4e;
+	--bad: #c0392b;
+	--warn: #a86a00;
+	--display: "Do Hyeon", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+	--body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+	--radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--bg: #10161b; --surface: #19222a; --surface-2: #1f2a33; --line: #2c3a45;
+		--fg: #e4ebef; --muted: #93a3ae; --tarp: #ff8240; --tarp-ink: #1a0d05;
+		--crate: #74a9ff; --good: #4cc98a; --bad: #ff7a6b; --warn: #f0b34a;
+		color-scheme: dark;
+	}
+}
+:root[data-theme="dark"] {
+	--bg: #10161b; --surface: #19222a; --surface-2: #1f2a33; --line: #2c3a45;
+	--fg: #e4ebef; --muted: #93a3ae; --tarp: #ff8240; --tarp-ink: #1a0d05;
+	--crate: #74a9ff; --good: #4cc98a; --bad: #ff7a6b; --warn: #f0b34a;
+	color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--fg); }
+body { font-family: var(--body); font-size: 15px; line-height: 1.5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--crate); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.wrap {
+	max-width: 640px; margin: 0 auto;
+	padding-left: max(16px, env(safe-area-inset-left, 0px));
+	padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* Title screen */
+.title-screen { padding-block: 40px 32px; display: grid; gap: 20px; }
+.brand { font-family: var(--display); font-size: 44px; line-height: 1.05; letter-spacing: -0.5px; margin: 0; }
+.brand span { color: var(--tarp); }
+.lede { color: var(--muted); margin: 0; }
+.shop-list { display: grid; gap: 12px; }
+.shop-card {
+	text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+	padding: 16px; display: grid; gap: 6px;
+}
+.shop-card:hover { border-color: var(--tarp); }
+.shop-card h2 { font-family: var(--display); font-weight: 400; font-size: 24px; margin: 0; }
+.shop-card p { margin: 0; color: var(--muted); }
+.shop-card .terms { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; }
+.shop-card .terms b { color: var(--fg); font-weight: 700; }
+.resume { background: var(--crate); color: var(--surface); border: 0; border-radius: var(--radius); padding: 14px 16px; font-weight: 700; text-align: left; }
+
+/* Ledger header */
+header.ledger {
+	position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+	background: var(--surface); border-bottom: 1px solid var(--line);
+}
+header.ledger .wrap { padding-block: 10px; display: grid; gap: 6px; }
+.ledger-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.ledger-top .shop { font-family: var(--display); font-size: 22px; }
+.ledger-top .day { color: var(--muted); font-size: 13px; }
+.money { font-family: var(--display); font-size: 30px; line-height: 1; }
+.money small { font-family: var(--body); font-size: 13px; color: var(--muted); }
+.goalbar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.goalbar i { display: block; height: 100%; background: var(--tarp); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+.chip b { color: var(--fg); font-weight: 500; }
+.events { display: flex; flex-wrap: wrap; gap: 6px; }
+.event { font-size: 12px; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--warn); color: var(--warn); }
+
+main { padding-block: 14px 120px; display: grid; gap: 18px; }
+h3.section { font-family: var(--display); font-weight: 400; font-size: 20px; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: baseline; }
+h3.section small { font-family: var(--body); font-size: 12px; color: var(--muted); }
+
+/* Item rows */
+.items { display: grid; gap: 8px; }
+.item { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; display: grid; gap: 8px; }
+.item-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.item-name { font-weight: 700; }
+.item-meta { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.up { color: var(--bad); } .down { color: var(--good); }
+.spoil { color: var(--warn); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.stepper button { width: 34px; height: 36px; border: 0; background: var(--surface-2); font-size: 18px; }
+.stepper input { width: 52px; height: 36px; border: 0; text-align: center; background: var(--surface); color: var(--fg); font: inherit; font-variant-numeric: tabular-nums; }
+.stepper-label { font-size: 12px; color: var(--muted); margin-right: 6px; }
+.buy { display: inline-flex; gap: 6px; }
+.buy button { min-width: 40px; height: 36px; border-radius: 8px; border: 1px solid var(--crate); background: transparent; color: var(--crate); font-weight: 700; }
+.buy button:disabled, .btn:disabled { opacity: .4; cursor: not-allowed; }
+.tag { font-size: 12px; color: var(--muted); }
+
+/* Upgrades & travel */
+.cards { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; display: grid; gap: 6px; align-content: start; }
+.card .name { font-weight: 700; }
+.card .desc { font-size: 13px; color: var(--muted); }
+.btn { border-radius: 8px; padding: 8px 12px; border: 1px solid var(--line); background: var(--surface-2); font-weight: 500; }
+.btn.primary { background: var(--tarp); border-color: var(--tarp); color: var(--tarp-ink); font-weight: 700; }
+.btn.blue { background: var(--crate); border-color: var(--crate); color: var(--surface); }
+
+/* Counter: the customer at the stall */
+.counter { background: var(--surface); border: 2px solid var(--tarp); border-radius: var(--radius); padding: 14px; display: grid; gap: 10px; }
+.counter .who { font-family: var(--display); font-size: 22px; }
+.counter .say { font-size: 16px; }
+.counter .prices { display: flex; gap: 16px; font-size: 13px; color: var(--muted); }
+.counter .prices b { color: var(--fg); font-size: 18px; }
+.counter .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.queue { font-size: 13px; color: var(--muted); }
+
+.log { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; max-height: 46vh; overflow-y: auto; font-size: 14px; display: grid; gap: 2px; }
+.log p { margin: 0; }
+.log .sale { color: var(--good); } .log .lost { color: var(--bad); } .log .ev { color: var(--warn); } .log .sys { color: var(--muted); }
+
+.report { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: grid; gap: 8px; }
+.report h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 22px; }
+.report dl { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 0; }
+.report dt { color: var(--muted); } .report dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.report .profit { font-weight: 700; }
+.gameover { text-align: center; padding-block: 40px; display: grid; gap: 14px; justify-items: center; }
+.gameover h2 { font-family: var(--display); font-weight: 400; font-size: 36px; margin: 0; }
+
+/* Thumb bar */
+.actionbar {
+	position: fixed; left: 0; right: 0; bottom: 0; z-index: 6;
+	background: var(--surface); border-top: 1px solid var(--line);
+	padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.actionbar .wrap { padding-block: 10px; display: flex; gap: 8px; align-items: center; }
+.actionbar .grow { flex: 1; }
+.actionbar .btn { padding: 12px 16px; }
+.actionbar .btn.primary { flex: 1; font-size: 17px; }
+.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); }
+.toggle input { width: 18px; height: 18px; accent-color: var(--tarp); }
+@media (prefers-reduced-motion: no-preference) {
+	.counter { animation: arrive .18s ease-out; }
+	@keyframes arrive { from { transform: translateY(4px); opacity: .6; } to { transform: none; opacity: 1; } }
+}
+</style>
+
+<div id="app"></div>
+
+<script>
+// Game data: generated from assets/data/*.json by tools/build_web.py — edit the JSON, not this.
+const DATA = /*__DATA__*/null;
+</script>
+<script>
+"use strict";
+// ---------------------------------------------------------------------------
+// Simulation — a port of src/ (inventory.gd, market.gd, customer_ai.gd,
+// shop_sim.gd). Same rules and data; the RNG differs, so seeds do not match Godot.
+// ---------------------------------------------------------------------------
+const NO_EXPIRY = -1;
+const LOCAL_CITY = "local";
+const PHASE = { PREP: "prep", OPEN: "open", OVER: "over" };
+
+class Rng {
+	constructor(seed) { this.s = (seed >>> 0) || 1; }
+	randf() { // mulberry32
+		this.s = (this.s + 0x6D2B79F5) | 0;
+		let t = Math.imul(this.s ^ (this.s >>> 15), 1 | this.s);
+		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	}
+	range(a, b) { return a + (b - a) * this.randf(); }
+	randi(a, b) { return a + Math.floor(this.randf() * (b - a + 1)); }
+	gauss(mean, dev) { const u = 1 - this.randf(), v = this.randf(); return mean + dev * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+}
+const roundi = Math.round;
+const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+const realKeys = (o) => Object.keys(o).filter((k) => !k.startsWith("_"));
+
+class Inventory {
+	constructor(capacity, lots = []) { this.capacity = capacity; this.lots = lots; }
+	totalQty() { return this.lots.reduce((s, l) => s + l.qty, 0); }
+	qty(id) { return this.lots.reduce((s, l) => s + (l.item === id ? l.qty : 0), 0); }
+	freeSpace() { return Math.max(this.capacity - this.totalQty(), 0); }
+	add(id, amount, unitCost, shelfLife) {
+		const added = Math.min(amount, this.freeSpace());
+		if (added <= 0) return 0;
+		this.lots.push({ item: id, qty: added, unit_cost: unitCost, days_left: shelfLife <= 0 ? NO_EXPIRY : shelfLife });
+		return added;
+	}
+	remove(id, amount) {
+		const key = (l) => (l.days_left < 0 ? 1e9 : l.days_left);
+		const cands = this.lots.filter((l) => l.item === id).sort((a, b) => key(a) - key(b));
+		let removed = 0, cost = 0;
+		for (const l of cands) {
+			if (removed >= amount) break;
+			const take = Math.min(l.qty, amount - removed);
+			l.qty -= take; removed += take; cost += take * l.unit_cost;
+		}
+		this.lots = this.lots.filter((l) => l.qty > 0);
+		return { qty: removed, cost };
+	}
+	minDaysLeft(id) {
+		let best = NO_EXPIRY;
+		for (const l of this.lots) if (l.item === id && l.days_left >= 0 && (best < 0 || l.days_left < best)) best = l.days_left;
+		return best;
+	}
+	ageOneDay(rate) {
+		const spoiled = {};
+		for (const l of this.lots) {
+			if (l.days_left < 0) continue;
+			l.days_left -= rate;
+			if (l.days_left <= 0.0001) { spoiled[l.item] = (spoiled[l.item] || 0) + l.qty; l.qty = 0; }
+		}
+		this.lots = this.lots.filter((l) => l.qty > 0);
+		return spoiled;
+	}
+	steal(fraction) {
+		let lost = 0;
+		for (const l of this.lots) { const t = Math.floor(l.qty * fraction); l.qty -= t; lost += t; }
+		this.lots = this.lots.filter((l) => l.qty > 0);
+		return lost;
+	}
+}
+
+class Market {
+	constructor(items, cities, balance, rng, saved) {
+		this.items = items; this.balance = balance; this.rng = rng;
+		this.cities = Object.keys(cities || {}).length ? cities : { [LOCAL_CITY]: { name: "", price_bias: {} } };
+		this.mult = saved ? saved.mult : {};
+		this.activeEvents = saved ? saved.events : [];
+		if (!saved) for (const c in this.cities) { this.mult[c] = {}; for (const i in items) this.mult[c][i] = 1; }
+	}
+	cityIds() { return Object.keys(this.cities); }
+	cityName(c) { return this.cities[c].name || c; }
+	eventFactor(id, key) {
+		let f = 1;
+		for (const ev of this.activeEvents) if (ev.item === "" || ev.item === id) f *= ev[key] ?? 1;
+		return f;
+	}
+	referencePrice(id, c) {
+		const bias = (this.cities[c].price_bias || {})[id] ?? 1;
+		return this.items[id].base_price * bias * this.mult[c][id] * this.eventFactor(id, "price_mult");
+	}
+	demandMult(id) { return this.eventFactor(id, "demand_mult"); }
+	trafficMult() { return this.activeEvents.reduce((f, ev) => f * (ev.traffic_mult ?? 1), 1); }
+	advanceDay(defs, shopTypeId) {
+		const b = this.balance;
+		for (const c in this.mult) for (const i in this.mult[c]) {
+			const vol = this.items[i].volatility || 0;
+			if (vol <= 0) continue;
+			let m = this.mult[c][i];
+			m += b.market_mean_reversion * (1 - m) + this.rng.gauss(0, vol);
+			this.mult[c][i] = clamp(m, b.market_min_mult, b.market_max_mult);
+		}
+		this.activeEvents = this.activeEvents.filter((ev) => --ev.days_left > 0);
+		const fired = [];
+		for (const id of realKeys(defs)) {
+			const d = defs[id];
+			if (d.shop_types && d.shop_types.length && !d.shop_types.includes(shopTypeId)) continue;
+			if (this.rng.randf() >= d.chance) continue;
+			let item = "";
+			if ((d.target || "all") === "random_item") { const ks = Object.keys(this.items); item = ks[this.rng.randi(0, ks.length - 1)]; }
+			const ev = {
+				id, item, days_left: d.duration || 0,
+				text: (d.text || id).replace("{item}", item ? this.items[item].name : ""),
+				price_mult: d.price_mult ?? 1, demand_mult: d.demand_mult ?? 1, traffic_mult: d.traffic_mult ?? 1,
+			};
+			if ("steal_fraction" in d) ev.steal_fraction = d.steal_fraction;
+			if (ev.days_left > 0) this.activeEvents.push(ev);
+			fired.push(ev);
+		}
+		return fired;
+	}
+}
+
+class CustomerAI {
+	constructor(allTypes, allowed, balance, rng) {
+		this.types = {}; for (const t of allowed) if (allTypes[t]) this.types[t] = allTypes[t];
+		this.balance = balance; this.rng = rng;
+	}
+	weightedPick(w) {
+		let total = 0; for (const k in w) total += Math.max(w[k], 0);
+		if (total <= 0) return "";
+		let roll = this.rng.randf() * total;
+		for (const k in w) { roll -= Math.max(w[k], 0); if (roll <= 0) return k; }
+		return Object.keys(w).pop();
+	}
+	makeCustomer(wantWeights) {
+		const tw = {}; for (const t in this.types) tw[t] = this.types[t].weight ?? 1;
+		const type = this.weightedPick(tw), want = this.weightedPick(wantWeights);
+		if (!type || !want) return null;
+		const t = this.types[type], q = t.buy_qty || [1, 1];
+		return { type, name: t.name || type, want, qty: this.rng.randi(q[0], q[1]),
+			budget_mult: t.budget_mult ?? 1, max_markup: t.max_markup ?? 1.3,
+			haggle_chance: t.haggle_chance ?? 0, patience: t.patience ?? 1 };
+	}
+	decide(c, price, value, bonus = 0) {
+		const limit = value * (c.max_markup + bonus);
+		if (price > limit * 1.25) return { action: "leave", qty: 0, offer: 0 };
+		const wallet = limit * c.budget_mult * c.qty;
+		const qty = clamp(Math.floor(wallet / Math.max(price, 1)), 1, c.qty);
+		const wantsDeal = this.rng.randf() < c.haggle_chance * 0.3;
+		if (price > limit || wantsDeal) {
+			const ask = this.balance.haggle_discount_ask;
+			let offer = roundi(Math.min(limit, price * this.rng.range(ask[0], ask[1])));
+			offer = clamp(offer, 1, Math.max(price - 1, 1));
+			return { action: "haggle", qty, offer };
+		}
+		return { action: "buy", qty, offer: price };
+	}
+	respondCounter(c, counter, value, bonus = 0) {
+		const limit = value * (c.max_markup + bonus) * (1 + this.balance.haggle_accept_margin);
+		if (counter <= limit) return "accept";
+		c.patience -= 1;
+		return c.patience <= 0 ? "leave" : "again";
+	}
+}
+
+class ShopSim {
+	constructor(typeId, seed, saved) {
+		this.typeId = typeId;
+		this.def = DATA.shop_types[typeId];
+		this.bal = DATA.balance;
+		this.rng = new Rng(saved ? saved.rng : seed);
+		this.onLog = () => {};
+		const s = saved || {};
+		this.money = s.money ?? this.def.start_money;
+		this.day = s.day ?? 1;
+		this.reputation = s.reputation ?? this.bal.reputation_start;
+		this.phase = s.phase ?? PHASE.PREP;
+		this.owned = s.owned ?? [];
+		this.overrides = s.overrides ?? {};
+		this.queue = s.queue ?? [];
+		this.pending = s.pending ?? null;
+		this.traveled = s.traveled ?? false;
+		this.today = s.today ?? this.blankToday();
+		this.inventory = new Inventory(0, s.lots ?? []);
+		this.inventory.capacity = this.storageCapacity();
+		this.market = new Market(this.def.items, this.def.cities, this.bal, this.rng, s.market);
+		this.city = s.city ?? this.market.cityIds()[0];
+		this.ai = new CustomerAI(DATA.customer_types, this.def.customer_types, this.bal, this.rng);
+	}
+	save() {
+		return { typeId: this.typeId, rng: this.rng.s, money: this.money, day: this.day, reputation: this.reputation,
+			phase: this.phase, owned: this.owned, overrides: this.overrides, queue: this.queue, pending: this.pending,
+			traveled: this.traveled, today: this.today, lots: this.inventory.lots, city: this.city,
+			market: { mult: this.market.mult, events: this.market.activeEvents } };
+	}
+	blankToday() { return { customers: 0, sold: 0, revenue: 0, cost: 0, walkouts: 0, stockouts: 0 }; }
+	log(text, kind = "") { this.onLog(text, kind); }
+
+	itemIds() { return Object.keys(this.def.items); }
+	itemName(id) { return this.def.items[id].name; }
+	isRecipe(id) { return !!this.def.items[id].recipe; }
+	isSellable(id) { return this.def.items[id].sellable ?? true; }
+	sellableItems() { return this.itemIds().filter((i) => this.isSellable(i)); }
+	buyableItems() { return this.itemIds().filter((i) => !this.isRecipe(i)); }
+	buyPrice(id) { return Math.max(1, roundi(this.market.referencePrice(id, this.city) * (this.def.wholesale_mult ?? 1))); }
+	sellPrice(id) {
+		if (id in this.overrides) return this.overrides[id];
+		return Math.max(1, roundi(this.market.referencePrice(id, this.city) * this.bal.default_markup));
+	}
+	setSellPrice(id, p) { this.overrides[id] = Math.max(1, Math.floor(p) || 1); }
+	resetPrices() { this.overrides = {}; }
+	availableQty(id) {
+		if (!this.isRecipe(id)) return this.inventory.qty(id);
+		let can = -1;
+		const r = this.def.items[id].recipe;
+		for (const ing in r) { const n = Math.floor(this.inventory.qty(ing) / r[ing]); can = can < 0 ? n : Math.min(can, n); }
+		return Math.max(can, 0);
+	}
+	buyStock(id, qty) {
+		if (this.phase !== PHASE.PREP || this.isRecipe(id) || qty <= 0) return 0;
+		const price = this.buyPrice(id);
+		const bought = this.inventory.add(id, Math.min(qty, Math.floor(this.money / price)), price, this.def.items[id].shelf_life || 0);
+		this.money -= bought * price;
+		if (bought < qty) this.log(`${this.itemName(id)} ${bought}개만 샀어요 (돈 또는 창고 부족)`, "sys");
+		return bought;
+	}
+
+	effect(key) { return this.owned.reduce((s, u) => s + ((DATA.upgrades[u].effects || {})[key] || 0), 0); }
+	availableUpgrades() { return (this.def.upgrades || []).filter((u) => !this.owned.includes(u)); }
+	upgradeBlockReason(id) {
+		const up = DATA.upgrades[id];
+		if (!up || !(this.def.upgrades || []).includes(id)) return "이 가게에서는 살 수 없어요";
+		if (this.owned.includes(id)) return "이미 있어요";
+		if (up.requires && !this.owned.includes(up.requires)) return `${DATA.upgrades[up.requires].name} 먼저 필요해요`;
+		if (this.money < up.cost) return "돈이 부족해요";
+		if (this.phase !== PHASE.PREP) return "영업 전에만 살 수 있어요";
+		return "";
+	}
+	buyUpgrade(id) {
+		const why = this.upgradeBlockReason(id);
+		if (why) { this.log(why, "sys"); return false; }
+		this.money -= DATA.upgrades[id].cost;
+		this.owned.push(id);
+		this.inventory.capacity = this.storageCapacity();
+		this.log(`업그레이드 완료: ${DATA.upgrades[id].name}`, "sys");
+		return true;
+	}
+	storageCapacity() { return this.def.storage_capacity + this.effect("storage"); }
+	dailyCost() { return this.def.daily_rent + this.effect("extra_rent"); }
+
+	canTravel() { return !!this.def.travel; }
+	travelCost() { return roundi((this.def.travel_cost || 0) * Math.max(0.1, 1 + this.effect("travel_cost_mult"))); }
+	travel(c) {
+		if (!this.canTravel() || this.phase !== PHASE.PREP || this.traveled || c === this.city || !this.market.cities[c]) return false;
+		if (this.money < this.travelCost()) { this.log("이동 비용이 부족해요", "sys"); return false; }
+		this.money -= this.travelCost();
+		this.city = c; this.traveled = true; this.resetPrices();
+		this.log(`${this.market.cityName(c)}(으)로 이동했어요 (-${this.travelCost()})`, "sys");
+		return true;
+	}
+
+	openShop() {
+		if (this.phase !== PHASE.PREP) return;
+		this.phase = PHASE.OPEN;
+		const b = this.bal;
+		const rep = 1 + b.reputation_traffic_weight * (this.reputation - 50);
+		const v = b.day_customer_variance;
+		const count = roundi(this.def.base_traffic * rep * (1 + this.effect("traffic_mult")) * this.market.trafficMult() * this.rng.range(1 - v, 1 + v));
+		const w = {};
+		for (const id of this.sellableItems()) {
+			let x = (this.def.items[id].demand ?? 1) * this.market.demandMult(id);
+			if (this.availableQty(id) <= 0) x *= b.unstocked_want_weight;
+			w[id] = x;
+		}
+		this.queue = [];
+		for (let i = 0; i < Math.max(count, 0); i++) { const c = this.ai.makeCustomer(w); if (c) this.queue.push(c); }
+		this.today.customers = this.queue.length;
+		this.log(`영업 시작! 오늘 손님 ${this.queue.length}명 예상`, "sys");
+	}
+	hasNextCustomer() { return this.phase === PHASE.OPEN && !this.pending && this.queue.length > 0; }
+	nextCustomer() {
+		if (!this.hasNextCustomer()) return null;
+		const c = this.queue.shift(), id = c.want;
+		const avail = this.availableQty(id);
+		if (avail <= 0) {
+			this.changeRep(this.bal.reputation_on_stockout);
+			this.today.stockouts++;
+			this.log(`${c.name}: ${this.itemName(id)} 없어요? 아쉽네요...`, "lost");
+			return "stockout";
+		}
+		const price = this.sellPrice(id), value = this.market.referencePrice(id, this.city);
+		const d = this.ai.decide(c, price, value, this.effect("max_markup_bonus"));
+		const qty = Math.min(d.qty, avail);
+		if (d.action === "buy") { this.sell(c, id, price, qty); return "sold"; }
+		if (d.action === "leave") { this.walkout(`${c.name}: ${this.itemName(id)} ${price}원? 너무 비싸요!`); return "left"; }
+		this.pending = { customer: c, item: id, price, value, qty, offer: d.offer };
+		this.log(`${c.name}: ${this.itemName(id)} ${qty}개, 개당 ${d.offer}원에 안 될까요? (정가 ${price}원)`);
+		if (this.effect("auto_haggle") > 0) {
+			const before = this.today.sold;
+			const mid = roundi((d.offer + price) / 2);
+			if (this.counterOffer(mid) !== "accept" && this.pending) { this.log("직원이 손님 제안을 받아들였어요", "sys"); this.acceptOffer(); }
+			return this.today.sold > before ? "sold" : "left";
+		}
+		return "haggle";
+	}
+	acceptOffer() {
+		if (!this.pending) return;
+		const h = this.pending; this.pending = null;
+		this.sell(h.customer, h.item, h.offer, h.qty);
+	}
+	counterOffer(price) {
+		if (!this.pending) return "";
+		const h = this.pending;
+		if (price <= h.offer) { this.acceptOffer(); return "accept"; }
+		const a = this.ai.respondCounter(h.customer, price, h.value, this.effect("max_markup_bonus"));
+		if (a === "accept") { this.pending = null; this.sell(h.customer, h.item, price, h.qty); }
+		else if (a === "leave") { this.pending = null; this.walkout(`${h.customer.name}: 됐어요, 다른 데 갈게요.`); }
+		else this.log(`${h.customer.name}: 음... ${price}원은 좀 비싸요.`);
+		return a;
+	}
+	rejectOffer() {
+		if (!this.pending) return;
+		const c = this.pending.customer; this.pending = null;
+		this.walkout(`${c.name}: 칫, 안 사요.`);
+	}
+	closeDay() {
+		if (this.phase === PHASE.OVER) return null;
+		if (this.pending) this.rejectOffer();
+		this.queue = [];
+		const rent = this.dailyCost();
+		this.money -= rent;
+		const spoiled = this.inventory.ageOneDay(1 - clamp(this.effect("spoil_slow"), 0, 0.9));
+		const events = this.market.advanceDay(DATA.events, this.typeId);
+		for (const ev of events) {
+			if ("steal_fraction" in ev) {
+				if (this.effect("event_protect") > 0) { this.log("호위병이 도적을 막아냈어요!", "ev"); continue; }
+				ev.stolen = this.inventory.steal(ev.steal_fraction);
+			}
+			this.log(`[이벤트] ${ev.text}`, "ev");
+		}
+		for (const id in spoiled) this.log(`${this.itemName(id)} ${spoiled[id]}개가 상해서 버렸어요`, "lost");
+		const r = { ...this.today, day: this.day, rent, spoiled, events, money: this.money };
+		r.profit = r.revenue - r.cost - rent;
+		this.day++; this.traveled = false; this.today = this.blankToday();
+		this.phase = this.isWon() || this.isBankrupt() ? PHASE.OVER : PHASE.PREP;
+		r.won = this.isWon(); r.bankrupt = this.isBankrupt();
+		this.log(`${r.day}일차 마감: 매출 ${roundi(r.revenue)}, 원가 ${roundi(r.cost)}, 임대료 ${rent} → 순이익 ${roundi(r.profit)}`, "sys");
+		return r;
+	}
+	isWon() { return this.money >= this.def.goal_money; }
+	isBankrupt() { return this.money < 0 && this.inventory.totalQty() === 0; }
+
+	sell(c, id, price, qty) {
+		let cost = 0;
+		if (this.isRecipe(id)) { const r = this.def.items[id].recipe; for (const ing in r) cost += this.inventory.remove(ing, r[ing] * qty).cost; }
+		else cost = this.inventory.remove(id, qty).cost;
+		this.money += price * qty;
+		this.today.revenue += price * qty; this.today.cost += cost; this.today.sold += qty;
+		this.changeRep(this.bal.reputation_on_sale * (1 + this.effect("reputation_gain")));
+		this.log(`${c.name}: ${this.itemName(id)} ${qty}개 구매 (+${price * qty}원)`, "sale");
+	}
+	walkout(line) { this.changeRep(this.bal.reputation_on_walkout); this.today.walkouts++; this.log(line, "lost"); }
+	changeRep(d) { this.reputation = clamp(this.reputation + d, this.bal.reputation_min, this.bal.reputation_max); }
+}
+
+// ---------------------------------------------------------------------------
+// UI
+// ---------------------------------------------------------------------------
+const SAVE_KEY = "shop-sim-save-v1";
+const TICK_MS = 750, TICK_FAST_MS = 180;
+const app = document.getElementById("app");
+let sim = null, logLines = [], report = null, timer = null, fast = false, counterValue = 0;
+
+const won = (n) => `${roundi(n).toLocaleString("ko-KR")}원`;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function storeGet() { try { return JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) { return null; } }
+function storeSet() {
+	try {
+		if (sim && sim.phase !== PHASE.OVER) localStorage.setItem(SAVE_KEY, JSON.stringify({ sim: sim.save(), log: logLines.slice(-60), fast }));
+		else localStorage.removeItem(SAVE_KEY);
+	} catch (e) { /* storage unavailable: play without saving */ }
+}
+
+function attach(s) {
+	sim = s;
+	sim.onLog = (text, kind) => { logLines.push({ text, kind }); if (logLines.length > 200) logLines.shift(); };
+}
+function startGame(typeId) {
+	logLines = []; report = null;
+	attach(new ShopSim(typeId, (Date.now() & 0x7fffffff) || 7));
+	sim.log(`[${sim.def.name}] 1일차 아침입니다. 물건을 사고 가격을 정한 뒤 영업을 시작하세요.`, "sys");
+	render();
+}
+function resumeGame(saved) {
+	logLines = saved.log || []; fast = !!saved.fast; report = null;
+	attach(new ShopSim(saved.sim.typeId, 1, saved.sim));
+	render();
+	if (sim.phase === PHASE.OPEN) startTimer();
+}
+function toTitle() { stopTimer(); sim = null; report = null; render(); }
+
+function startTimer() { stopTimer(); timer = setInterval(tick, fast ? TICK_FAST_MS : TICK_MS); }
+function stopTimer() { if (timer) clearInterval(timer); timer = null; }
+function tick() {
+	if (!sim || sim.pending) return;
+	if (sim.hasNextCustomer()) {
+		sim.nextCustomer();
+		if (sim.pending) counterValue = roundi((sim.pending.offer + sim.pending.price) / 2);
+	} else closeDay();
+	render();
+}
+function closeDay() { stopTimer(); report = sim.closeDay(); render(); }
+
+// --- Views ---
+function titleView() {
+	const saved = storeGet();
+	const resume = saved && DATA.shop_types[saved.sim.typeId]
+		? `<button class="resume" data-act="resume">이어하기 — ${esc(DATA.shop_types[saved.sim.typeId].name)} ${saved.sim.day}일차 · ${won(saved.sim.money)}</button>` : "";
+	const cards = realKeys(DATA.shop_types).map((id) => {
+		const d = DATA.shop_types[id];
+		return `<button class="shop-card" data-act="start" data-id="${id}">
+			<h2>${esc(d.name)}</h2><p>${esc(d.description || "")}</p>
+			<div class="terms num"><span>시작 <b>${won(d.start_money)}</b></span><span>목표 <b>${won(d.goal_money)}</b></span><span>하루 임대료 <b>${won(d.daily_rent)}</b></span></div>
+		</button>`;
+	}).join("");
+	return `<div class="wrap title-screen">
+		<h1 class="brand">장사<br><span>시뮬레이터</span></h1>
+		<p class="lede">싸게 사서 비싸게 파세요. 손님과 흥정하고, 시세를 읽고, 가게를 키워 목표 금액을 모으면 승리.</p>
+		${resume}
+		<div class="shop-list">${cards}</div>
+	</div>`;
+}
+
+function headerView() {
+	const s = sim, pct = clamp(s.money / s.def.goal_money * 100, 0, 100);
+	const events = s.market.activeEvents.map((e) => `<span class="event">${esc(e.text)} · ${e.days_left}일</span>`).join("");
+	const city = s.canTravel() ? `<span class="chip">위치 <b>${esc(s.market.cityName(s.city))}</b></span>` : "";
+	return `<header class="ledger"><div class="wrap">
+		<div class="ledger-top"><span class="shop">${esc(s.def.name)}</span><span class="day num">${s.day}일차 · ${s.phase === PHASE.OPEN ? "영업 중" : "준비"}</span></div>
+		<div class="money num">${won(s.money)} <small>/ 목표 ${won(s.def.goal_money)}</small></div>
+		<div class="goalbar" aria-hidden="true"><i style="width:${pct}%"></i></div>
+		<div class="chips num">
+			<span class="chip">평판 <b>${roundi(s.reputation)}</b></span>
+			<span class="chip">창고 <b>${s.inventory.totalQty()}/${s.storageCapacity()}</b></span>
+			<span class="chip">하루 비용 <b>${won(s.dailyCost())}</b></span>${city}
+		</div>
+		${events ? `<div class="events">${events}</div>` : ""}
+	</div></header>`;
+}
+
+function itemsView(prep) {
+	const s = sim;
+	const rows = s.itemIds().map((id) => {
+		const recipe = s.isRecipe(id);
+		let meta;
+		if (recipe) {
+			const r = s.def.items[id].recipe;
+			meta = `<span>제조: ${Object.keys(r).map((g) => `${esc(s.itemName(g))}×${r[g]}`).join(", ")}</span><span class="num">지금 <b>${s.availableQty(id)}</b>개 가능</span>`;
+		} else {
+			const m = s.market.mult[s.city][id];
+			const arrow = m > 1.05 ? `<span class="up">▲</span>` : m < 0.95 ? `<span class="down">▼</span>` : "";
+			const days = s.inventory.minDaysLeft(id);
+			const life = s.def.items[id].shelf_life ? (days >= 0 ? `<span class="spoil num">기한 ${days.toFixed(1)}일</span>` : `<span>기한 ${s.def.items[id].shelf_life}일</span>`) : "";
+			meta = `<span class="num">매입 <b>${s.buyPrice(id)}원</b> ${arrow}</span><span class="num">재고 <b>${s.inventory.qty(id)}</b></span>${life}`;
+		}
+		const price = s.isSellable(id)
+			? `<span><span class="stepper-label">판매가</span><span class="stepper">
+				<button data-act="price" data-id="${id}" data-d="-1" aria-label="${esc(s.itemName(id))} 가격 내리기">−</button>
+				<input id="price-${id}" class="num" type="number" inputmode="numeric" min="1" value="${s.sellPrice(id)}" data-act="price-set" data-id="${id}" aria-label="${esc(s.itemName(id))} 판매가">
+				<button data-act="price" data-id="${id}" data-d="1" aria-label="${esc(s.itemName(id))} 가격 올리기">+</button></span></span>`
+			: `<span class="tag">재료 (요리에 쓰여요)</span>`;
+		const buy = recipe ? "" : `<span class="buy">${[1, 5, 10].map((n) => `<button data-act="buy" data-id="${id}" data-n="${n}" ${prep ? "" : "disabled"}>+${n}</button>`).join("")}</span>`;
+		return `<div class="item"><div class="item-head"><span class="item-name">${esc(s.itemName(id))}</span></div>
+			<div class="item-meta">${meta}</div><div class="controls">${price}${buy}</div></div>`;
+	}).join("");
+	return `<section><h3 class="section">품목 <small><button class="btn" data-act="reset-prices">판매가 시세에 맞추기</button></small></h3><div class="items">${rows}</div></section>`;
+}
+
+function upgradesView() {
+	const s = sim, list = s.availableUpgrades();
+	if (!list.length) return "";
+	const cards = list.map((id) => {
+		const up = DATA.upgrades[id], why = s.upgradeBlockReason(id);
+		return `<div class="card"><span class="name">${esc(up.name)}</span><span class="desc">${esc(effectText(up))}</span>
+			<button class="btn blue num" data-act="upgrade" data-id="${id}" ${why ? "disabled" : ""}>${won(up.cost)}</button>
+			${why ? `<span class="desc">${esc(why)}</span>` : ""}</div>`;
+	}).join("");
+	return `<section><h3 class="section">가게 업그레이드</h3><div class="cards">${cards}</div></section>`;
+}
+function effectText(up) {
+	const e = up.effects || {}, out = [];
+	if (e.storage) out.push(`창고 +${e.storage}`);
+	if (e.traffic_mult) out.push(`손님 +${roundi(e.traffic_mult * 100)}%`);
+	if (e.reputation_gain) out.push(`평판 상승 +${roundi(e.reputation_gain * 100)}%`);
+	if (e.spoil_slow) out.push(`유통기한 ${roundi(1 / (1 - e.spoil_slow) * 10) / 10}배`);
+	if (e.auto_haggle) out.push("흥정 자동 처리");
+	if (e.max_markup_bonus) out.push("손님이 조금 더 비싸도 삼");
+	if (e.extra_rent) out.push(`하루 비용 +${e.extra_rent}원`);
+	if (e.travel_cost_mult) out.push(`이동비 ${roundi(e.travel_cost_mult * 100)}%`);
+	if (e.event_protect) out.push("도적 방어");
+	if (up.requires) out.push(`${DATA.upgrades[up.requires].name} 필요`);
+	return out.join(" · ");
+}
+
+function travelView() {
+	const s = sim;
+	if (!s.canTravel()) return "";
+	const cards = s.market.cityIds().map((c) => {
+		const here = c === s.city;
+		const hint = s.buyableItems().map((id) => `${s.itemName(id)} ${roundi(s.market.referencePrice(id, c))}`).join(" · ");
+		return `<div class="card"><span class="name">${esc(s.market.cityName(c))}${here ? " (현재)" : ""}</span>
+			<span class="desc num">시세 ${esc(hint)}</span>
+			${here ? "" : `<button class="btn blue num" data-act="travel" data-id="${c}" ${s.traveled ? "disabled" : ""}>이동 ${won(s.travelCost())}</button>`}</div>`;
+	}).join("");
+	return `<section><h3 class="section">도시 이동 <small>하루 한 번 · 영업 전</small></h3><div class="cards">${cards}</div></section>`;
+}
+
+function counterView() {
+	const s = sim, h = s.pending;
+	if (!h) {
+		return `<div class="counter"><span class="who">${s.queue.length ? "다음 손님을 기다리는 중…" : "손님이 모두 다녀갔어요"}</span>
+			<span class="queue num">남은 손님 ${s.queue.length}명 · 오늘 판매 ${s.today.sold}개 · 매출 ${won(s.today.revenue)}</span></div>`;
+	}
+	return `<div class="counter" role="group" aria-label="흥정">
+		<span class="who">${esc(h.customer.name)}의 흥정</span>
+		<span class="say">"${esc(s.itemName(h.item))} ${h.qty}개, 개당 ${h.offer}원에 안 될까요?"</span>
+		<span class="prices num"><span>손님 제안 <b>${h.offer}원</b></span><span>내 가격 <b>${h.price}원</b></span><span>남은 인내 <b>${h.customer.patience}</b></span></span>
+		<div class="actions">
+			<button class="btn primary" data-act="accept">${h.offer}원에 수락</button>
+			<span class="stepper"><button data-act="counter-d" data-d="-1" aria-label="역제안 내리기">−</button>
+				<input id="counter" class="num" type="number" inputmode="numeric" min="1" value="${counterValue}" aria-label="역제안 가격">
+				<button data-act="counter-d" data-d="1" aria-label="역제안 올리기">+</button></span>
+			<button class="btn blue" data-act="counter">역제안</button>
+			<button class="btn" data-act="reject">거절</button>
+		</div>
+		<span class="queue num">남은 손님 ${s.queue.length}명</span>
+	</div>`;
+}
+
+function logView() {
+	const lines = logLines.slice(-40).reverse().map((l) => `<p class="${l.kind}">${esc(l.text)}</p>`).join("");
+	return `<section><h3 class="section">장부</h3><div class="log" aria-live="polite">${lines}</div></section>`;
+}
+
+function reportView() {
+	const r = report;
+	const spoiled = Object.keys(r.spoiled).map((id) => `${sim.itemName(id)} ${r.spoiled[id]}`).join(", ") || "없음";
+	return `<section class="report"><h3>${r.day}일차 정산</h3><dl class="num">
+		<dt>손님</dt><dd>${r.customers}명 (나감 ${r.walkouts} · 품절 ${r.stockouts})</dd>
+		<dt>판매</dt><dd>${r.sold}개</dd>
+		<dt>매출</dt><dd>${won(r.revenue)}</dd>
+		<dt>원가</dt><dd>−${won(r.cost)}</dd>
+		<dt>임대료</dt><dd>−${won(r.rent)}</dd>
+		<dt>폐기</dt><dd>${esc(spoiled)}</dd>
+		<dt class="profit">순이익</dt><dd class="profit" style="color:var(${r.profit >= 0 ? "--good" : "--bad"})">${won(r.profit)}</dd>
+	</dl></section>`;
+}
+
+function gameView() {
+	const s = sim, prep = s.phase === PHASE.PREP;
+	if (s.phase === PHASE.OVER && report) {
+		return headerView() + `<main class="wrap"><div class="gameover">
+			<h2>${report.won ? "목표 달성!" : "파산했어요"}</h2>
+			<p>${report.won ? `${report.day}일 만에 ${won(report.money)}을 모았어요.` : `${report.day}일차, 남은 돈 ${won(report.money)}`}</p>
+			<button class="btn primary" data-act="title">처음으로</button></div>${reportView()}${logView()}</main>`;
+	}
+	let body;
+	if (prep) body = (report ? reportView() : "") + itemsView(true) + upgradesView() + travelView() + logView();
+	else body = counterView() + logView() + itemsView(false);
+	const bar = prep
+		? `<button class="btn" data-act="title" aria-label="처음으로">처음</button><button class="btn primary" data-act="open">영업 시작</button>`
+		: `<label class="toggle"><input id="fast" type="checkbox" data-act="fast" ${fast ? "checked" : ""}>빠르게</label><span class="grow"></span><button class="btn" data-act="close">오늘 마감</button>`;
+	return headerView() + `<main class="wrap">${body}</main><div class="actionbar"><div class="wrap">${bar}</div></div>`;
+}
+
+function render() {
+	app.innerHTML = sim ? gameView() : titleView();
+	storeSet();
+}
+
+// --- Events ---
+app.addEventListener("click", (e) => {
+	const t = e.target.closest("[data-act]");
+	if (!t || t.disabled) return;
+	const id = t.dataset.id;
+	switch (t.dataset.act) {
+		case "start": startGame(id); return;
+		case "resume": { const s = storeGet(); if (s) resumeGame(s); return; }
+		case "title": toTitle(); return;
+		case "buy": sim.buyStock(id, +t.dataset.n); break;
+		case "price": sim.setSellPrice(id, sim.sellPrice(id) + (+t.dataset.d)); break;
+		case "reset-prices": sim.resetPrices(); break;
+		case "upgrade": sim.buyUpgrade(id); break;
+		case "travel": sim.travel(id); break;
+		case "open": report = null; sim.openShop(); window.scrollTo(0, 0); startTimer(); tick(); return;
+		case "close": closeDay(); return;
+		case "accept": sim.acceptOffer(); break;
+		case "counter-d": counterValue = Math.max(1, counterValue + (+t.dataset.d)); break;
+		case "counter": {
+			const v = Math.max(1, +document.getElementById("counter").value || counterValue);
+			if (sim.counterOffer(v) === "again") counterValue = roundi((v + sim.pending.offer) / 2);
+			break;
+		}
+		case "reject": sim.rejectOffer(); break;
+		default: return;
+	}
+	render();
+});
+app.addEventListener("change", (e) => {
+	const t = e.target;
+	if (t.dataset.act === "price-set") { sim.setSellPrice(t.dataset.id, +t.value); render(); }
+	else if (t.id === "counter") counterValue = Math.max(1, +t.value || 1);
+	else if (t.dataset.act === "fast") { fast = t.checked; if (timer) startTimer(); storeSet(); }
+});
+
+function start() { render(); }
+window.claude?.hot?.snapshot?.(() => ({ save: sim ? { sim: sim.save(), log: logLines, fast } : null }));
+const boot = (data) => { if (data && data.save) resumeGame(data.save); else start(); };
+window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
+</script>

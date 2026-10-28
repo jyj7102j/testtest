@@ -1,0 +1,10 @@
+{
+	"storage_1": { "name": "창고 확장 I", "cost": 1500, "effects": { "storage": 40 } },
+	"storage_2": { "name": "창고 확장 II", "cost": 4000, "requires": "storage_1", "effects": { "storage": 80 } },
+	"sign": { "name": "큰 간판", "cost": 2000, "effects": { "traffic_mult": 0.25 } },
+	"ad": { "name": "전단지 광고", "cost": 3500, "effects": { "traffic_mult": 0.4, "reputation_gain": 0.5 } },
+	"fridge": { "name": "냉장고", "cost": 2500, "effects": { "spoil_slow": 0.5 } },
+	"clerk": { "name": "직원 고용", "cost": 3000, "effects": { "auto_haggle": 1, "extra_rent": 60, "max_markup_bonus": 0.1 } },
+	"wagon": { "name": "큰 마차", "cost": 3000, "effects": { "storage": 60, "travel_cost_mult": -0.3 } },
+	"guard": { "name": "호위병", "cost": 2500, "effects": { "event_protect": 1 } }
+}

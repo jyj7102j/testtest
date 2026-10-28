@@ -95,9 +95,10 @@ func buyable_items() -> Array:
 	return item_ids().filter(func(id): return not is_recipe(id))
 
 
-## Wholesale price per unit here today.
+## Wholesale price per unit here today: the market price times the shop type's
+## `wholesale_mult` (a discount below 1.0).
 func get_buy_price(item_id: String) -> int:
-	return market.buy_price(item_id, city)
+	return maxi(1, roundi(market.reference_price(item_id, city) * float(def.get("wholesale_mult", 1.0))))
 
 
 ## Price the shop asks customers per unit: the player's override, or the fair value
@@ -384,16 +385,18 @@ func close_day() -> Dictionary:
 	return report
 
 
-## Plays the rest of today without a player: opens if needed, counters every haggle
-## at `counter_ratio` of the asking price, then closes. Used by tests and fast-forward.
+## Plays the rest of today without a player: opens if needed, then answers every
+## haggle by countering at `counter_ratio` of the asking price and meeting the
+## customer halfway after each refusal, then closes. Used by tests and fast-forward.
 func run_auto_day(counter_ratio: float = 0.95) -> Dictionary:
 	open_shop()
 	while has_next_customer():
 		next_customer()
+		var counter := roundi(float(pending_haggle.get("price", 0)) * counter_ratio)
 		while not pending_haggle.is_empty():
-			var counter := maxi(int(pending_haggle["offer"]) + 1,
-					roundi(float(pending_haggle["price"]) * counter_ratio))
-			counter_offer(counter)
+			counter = maxi(int(pending_haggle["offer"]), counter)
+			if counter_offer(counter) == "again":
+				counter = roundi((counter + int(pending_haggle["offer"])) / 2.0)
 	return close_day()
 
 

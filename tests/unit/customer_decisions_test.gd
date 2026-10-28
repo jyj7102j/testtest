@@ -19,6 +19,17 @@ func test_fair_price_buys() -> void:
 	assert_eq(d["qty"], 2, "buys wanted qty")
 
 
+func test_low_budget_still_buys_one_at_acceptable_price() -> void:
+	# Regression: the wallet ignored markup, so budget_mult < 1 customers walked out
+	# of every normally priced item.
+	var c := _customer()
+	c["qty"] = 1
+	c["budget_mult"] = 0.5
+	var d := _ai().decide(c, 12, 10.0)
+	assert_eq(d["action"], "buy", "1.2x value is within 1.4x limit")
+	assert_eq(d["qty"], 1, "buys one")
+
+
 func test_far_too_expensive_leaves() -> void:
 	assert_eq(_ai().decide(_customer(), 40, 10.0)["action"], "leave", "4x value")
 

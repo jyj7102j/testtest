@@ -47,10 +47,12 @@ func make_customer(want_weights: Dictionary) -> Dictionary:
 ## Returns {"action": "buy" | "haggle" | "leave", "qty": int, "offer": int}.
 func decide(customer: Dictionary, price: int, value: float, markup_bonus: float = 0.0) -> Dictionary:
 	var limit := value * (float(customer["max_markup"]) + markup_bonus)
-	var wallet := value * float(customer["budget_mult"]) * int(customer["qty"]) * 1.2
-	var qty := mini(int(customer["qty"]), int(floor(wallet / maxf(price, 1))))
-	if qty <= 0 or price > limit * 1.25:
+	if price > limit * 1.25:
 		return {"action": "leave", "qty": 0, "offer": 0}
+	# The wallet always covers one unit at the customer's own limit; budget_mult
+	# only decides how many more they can take.
+	var wallet := limit * float(customer["budget_mult"]) * int(customer["qty"])
+	var qty := clampi(int(floor(wallet / maxf(price, 1))), 1, int(customer["qty"]))
 
 	var wants_deal := _rng.randf() < float(customer["haggle_chance"]) * 0.3
 	if price > limit or wants_deal:

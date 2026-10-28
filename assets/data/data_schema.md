@@ -14,6 +14,7 @@ comments and are ignored by the loader (`src/core/game_data.gd`).
 | `start_money` | number | Money on day 1 (원) |
 | `goal_money` | number | Win when money reaches this |
 | `daily_rent` | number | Charged at every close of day |
+| `wholesale_mult` | number | Shop's buy price = fair value × this (default 1.0; <1 = wholesale discount) |
 | `base_traffic` | number | Customers per day at reputation 50, before modifiers |
 | `storage_capacity` | int | Units the shop can hold before upgrades |
 | `customer_types` | string[] | Ids from `customer_types.json` that visit this shop |

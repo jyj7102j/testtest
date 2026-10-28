@@ -20,6 +20,14 @@ func test_buy_stock_limited_by_storage() -> void:
 	assert_eq(sim.buy_stock("ramen", 10000), sim.storage_capacity(), "only what fits")
 
 
+func test_wholesale_mult_discounts_buy_price() -> void:
+	var sim := _sim()
+	var mult := float(sim.def["wholesale_mult"])
+	var fair := sim.market.reference_price("battery", sim.city)
+	assert_eq(sim.get_buy_price("battery"), roundi(fair * mult), "buy price = fair value × wholesale_mult")
+	assert_true(sim.get_buy_price("battery") < sim.get_sell_price("battery"), "room for profit")
+
+
 func test_cannot_buy_recipe_items() -> void:
 	var sim := _sim("food_stall")
 	assert_eq(sim.buy_stock("tteokbokki", 5), 0, "recipes are made, not bought")
